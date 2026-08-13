@@ -25,28 +25,3 @@ jobs:
         with:
           name: football-ai-apk
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
-name: Build Football AI APK
-on:
-  workflow_dispatch:
-  push:
-    paths:
-      - football-ai-android.zip
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
-      - run: mkdir android-app && unzip football-ai-android.zip -d android-app || test -f android-app/settings.gradle
-      - run: gradle assembleDebug
-        working-directory: android-app
-      - uses: actions/upload-artifact@v4
-        with:
-          name: football-ai-apk
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
