@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: football-ai-6-2
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: YOLO_MODEL
+        value: yolo11n.pt
+      - key: FOOTBALL_AI_DATA_DIR
+        value: /var/data/football_ai
+    disk:
+      name: football-ai-data
+      mountPath: /var/data
+      sizeGB: 10
