@@ -19,8 +19,16 @@ DB_PATH = DATA_DIR / "jobs.sqlite3"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "500"))
 
 app = FastAPI(title=f"FOOTBALL AI {APP_VERSION}")
-model = YOLO(os.getenv("YOLO_MODEL", "yolo11n.pt"))
+model = None
 model_lock = threading.Lock()
+
+
+def get_model():
+    global model
+    with model_lock:
+        if model is None:
+            model = YOLO(os.getenv("YOLO_MODEL", "yolo11n.pt"))
+        return model
 
 
 def db():
@@ -110,9 +118,49 @@ function fail(t){busy=false;start.disabled=false;msg.className='msg error';msg.t
 </script></body></html>'''
 
 
+INDEX_HTML = r'''<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07140f"><link rel="manifest" href="/manifest.webmanifest"><title>FOOTBALL AI</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#07140f;color:#f5fff9;font-family:system-ui,sans-serif}main{max-width:780px;margin:auto;padding:24px 16px 80px}h1{margin:0;font-size:38px}.sub{color:#9fc6b2}.card{background:#10231a;border:1px solid #28533d;border-radius:20px;padding:18px}.steps{display:flex;gap:6px;margin-bottom:16px}.step{flex:1;padding:10px 4px;text-align:center;background:#1a3427;border-radius:10px;font-size:13px;color:#a8c9b7}.on{background:#20d274;color:#062013;font-weight:800}.pick{display:block;padding:26px 10px;border:2px dashed #397b57;border-radius:14px;text-align:center;font-weight:800}input{display:none}.vw{display:none;position:relative;margin-top:16px;background:#000;border-radius:12px;overflow:hidden}video{display:block;width:100%;max-height:58vh}canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.hint{color:#c1d9cc}.actions{display:flex;gap:8px;flex-wrap:wrap}button,a.dl{border:0;border-radius:12px;padding:14px 16px;font-weight:800;font-size:16px;text-decoration:none}button{background:#20d274;color:#052014}button:disabled{opacity:.4}.reset{background:#29463a;color:#fff}.dl{display:none;background:#ffd151;color:#211900}.status{display:none;margin-top:18px}.bar{height:14px;background:#294438;border-radius:99px;overflow:hidden}.fill{height:100%;width:0;background:#20d274}.msg{margin-top:9px}.error{color:#ff9e9e}@media(max-width:500px){h1{font-size:32px}.card{padding:13px}}</style></head>
+<body><main><h1>FOOTBALL AI</h1><p class="sub">&#50689;&#49345;&#50640;&#49436; &#49440;&#49688;&#47484; &#54620; &#48264; &#45572;&#47476;&#47732; &#51088;&#46041;&#51004;&#47196; &#52628;&#51201;&#54633;&#45768;&#45796;.</p><section class="card">
+<div class="steps"><div class="step on" id="s1">1. &#50689;&#49345; &#49440;&#53469;</div><div class="step" id="s2">2. &#49440;&#49688; &#49440;&#53469;</div><div class="step" id="s3">3. &#51088;&#46041; &#48516;&#49437;</div></div>
+<label class="pick" for="file">&#52629;&#44396; &#50689;&#49345;&#51012; &#49440;&#53469;&#54616;&#49464;&#50836;<br><small>MP4 / MOV, 500MB &#51060;&#54616;</small></label><input id="file" type="file" accept="video/*">
+<div class="vw" id="vw"><video id="video" controls playsinline></video><canvas id="cv"></canvas></div><p class="hint" id="hint">&#50689;&#49345;&#51012; &#49440;&#53469;&#54616;&#47732; &#52628;&#51201;&#54624; &#49440;&#49688;&#47484; &#45572;&#47484; &#49688; &#51080;&#49845;&#45768;&#45796;.</p>
+<div class="actions"><button id="start" disabled>&#48516;&#49437; &#49884;&#51089;</button><button class="reset" id="reset">&#45796;&#49884; &#49440;&#53469;</button><a class="dl" id="dl">&#44208;&#44284; &#50689;&#49345; &#45796;&#50868;&#47196;&#46300;</a></div><div class="status" id="status"><div class="bar"><div class="fill" id="fill"></div></div><div class="msg" id="msg"></div></div></section></main>
+<script>
+const f=document.querySelector('#file'),v=document.querySelector('#video'),cv=document.querySelector('#cv'),vw=document.querySelector('#vw'),start=document.querySelector('#start'),reset=document.querySelector('#reset'),hint=document.querySelector('#hint'),st=document.querySelector('#status'),fill=document.querySelector('#fill'),msg=document.querySelector('#msg'),dl=document.querySelector('#dl');let p=null,url=null,busy=false;
+function step(n){for(let i=1;i<4;i++)document.querySelector('#s'+i).classList.toggle('on',i===n)}
+function draw(){cv.width=v.clientWidth*devicePixelRatio;cv.height=v.clientHeight*devicePixelRatio;let c=cv.getContext('2d');c.scale(devicePixelRatio,devicePixelRatio);if(p){c.strokeStyle='#ff3030';c.lineWidth=4;c.beginPath();c.arc(p.dx,p.dy,18,0,7);c.stroke()}}
+f.onchange=()=>{if(!f.files[0])return;if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(f.files[0]);v.src=url;vw.style.display='block';p=null;start.disabled=true;step(2);hint.textContent='\uC120\uC218\uAC00 \uC798 \uBCF4\uC774\uB294 \uC7A5\uBA74\uC5D0\uC11C \uC601\uC0C1\uC744 \uBA48\uCD94\uACE0, \uBAB8 \uAC00\uC6B4\uB370\uB97C \uB204\uB974\uC138\uC694.'};
+cv.onclick=e=>{if(busy)return;let r=cv.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;p={dx,dy,x:dx/r.width*v.videoWidth,y:dy/r.height*v.videoHeight,t:v.currentTime};draw();start.disabled=false;hint.textContent='\uC120\uC218 \uC120\uD0DD \uC644\uB8CC. \uBD84\uC11D \uC2DC\uC791\uC744 \uB204\uB974\uC138\uC694.'};
+reset.onclick=()=>{if(busy)return;location.reload()};start.onclick=async()=>{if(!p)return;busy=true;start.disabled=true;step(3);st.style.display='block';msg.textContent='\uC601\uC0C1\uC744 \uC62C\uB9AC\uB294 \uC911...';let d=new FormData();d.append('video',f.files[0]);d.append('target_x',p.x);d.append('target_y',p.y);d.append('target_time',p.t);try{let r=await fetch('/analyze',{method:'POST',body:d}),j=await r.json();if(!r.ok)throw Error(j.detail);poll(j.job)}catch(e){fail(e.message)}};
+async function poll(id){try{let r=await fetch('/status/'+id),j=await r.json();if(!r.ok)throw Error(j.detail);fill.style.width=j.progress+'%';msg.textContent=j.message;if(j.status==='done'){busy=false;dl.href='/result/'+id;dl.style.display='inline-block';return}if(j.status==='error')throw Error(j.message);setTimeout(()=>poll(id),1500)}catch(e){fail(e.message)}}function fail(x){busy=false;start.disabled=false;msg.className='msg error';msg.textContent=x}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
+</script></body></html>'''
+
+
 @app.get("/", response_class=HTMLResponse)
 def root():
     return INDEX_HTML
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"name":"FOOTBALL AI","short_name":"FOOTBALL AI","start_url":"/","display":"standalone","background_color":"#07140f","theme_color":"#07140f","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}, media_type="application/manifest+json")
+
+
+@app.get("/sw.js")
+def service_worker():
+    from fastapi.responses import Response
+    return Response("self.addEventListener('fetch',()=>{});", media_type="application/javascript")
+
+
+@app.get("/icon.svg")
+def icon():
+    from fastapi.responses import Response
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="96" fill="#07140f"/><circle cx="256" cy="256" r="170" fill="#20d274"/><text x="256" y="292" text-anchor="middle" font-family="Arial" font-size="112" font-weight="bold" fill="#07140f">FA</text></svg>'
+    return Response(svg, media_type="image/svg+xml")
 
 
 @app.get("/health")
@@ -142,8 +190,9 @@ def run_analysis(job_id: str, inp: Path, out: Path, target_x: float, target_y: f
             ok, frame = cap.read()
             if not ok:
                 break
+            tracker_model = get_model()
             with model_lock:
-                result = model.track(frame, persist=True, tracker="botsort.yaml", classes=[0], verbose=False)[0]
+                result = tracker_model.track(frame, persist=True, tracker="botsort.yaml", classes=[0], verbose=False)[0]
             candidates = []
             if result.boxes is not None and result.boxes.id is not None:
                 boxes = result.boxes.xyxy.cpu().numpy()
